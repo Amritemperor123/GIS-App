@@ -13,7 +13,7 @@ function resolveBaseUrl(): string {
 }
 const BASE_URL = resolveBaseUrl();
 
-export async function apiSignup(params: { username: string; contactNumber: string; password: string; userType?: 'normal' | 'service_provider' }) {
+export async function apiSignup(params: { username: string; contactNumber: string; password: string; userType?: 'normal' | 'service_provider'; sector?: string }) {
   const res = await fetch(`${BASE_URL}/api/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

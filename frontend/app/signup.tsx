@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { User, Briefcase } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { getAllSectors, getSectorForLocation } from '../utils/locationUtils';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SignupScreen() {
@@ -22,6 +25,35 @@ export default function SignupScreen() {
   const [userType, setUserType] = useState<'normal' | 'service_provider'>('normal');
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth() as any;
+  const [sector, setSector] = useState<string>('');
+  const [sectorAuto, setSectorAuto] = useState<string>('');
+  const [isDetectingSector, setIsDetectingSector] = useState(false);
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [useCustomSector, setUseCustomSector] = useState(false);
+
+  useEffect(() => {
+    const uniqueSectors = Array.from(new Set(getAllSectors().map(s => s.sector)));
+    setSectors(uniqueSectors);
+  }, []);
+
+  useEffect(() => {
+    if (userType !== 'service_provider') return;
+    (async () => {
+      try {
+        setIsDetectingSector(true);
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== 'granted') {
+          setSectorAuto('');
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const info = getSectorForLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        setSectorAuto(info?.sector || '');
+      } finally {
+        setIsDetectingSector(false);
+      }
+    })();
+  }, [userType]);
 
   const handleSignup = async () => {
     if (!username || !contactNumber || !password || !confirmPassword) {
@@ -37,9 +69,17 @@ export default function SignupScreen() {
       return;
     }
 
+    if (userType === 'service_provider') {
+      const pickedSector = useCustomSector ? sector : sectorAuto;
+      if (!pickedSector) {
+        Alert.alert('Error', 'Sector ID is required for service providers');
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
-      const success = await signup({ username, contactNumber, password, userType });
+      const success = await signup({ username, contactNumber, password, userType, sector: userType === 'service_provider' ? (useCustomSector ? sector : sectorAuto) : undefined });
       if (success) {
         Alert.alert('Success', 'Account created. You can sign in now.', [
           { text: 'OK', onPress: () => router.replace('/login') },
@@ -123,7 +163,7 @@ export default function SignupScreen() {
               accessibilityRole="button"
               accessibilityLabel="Normal user"
             >
-              <User name="user" size={20} color={userType === 'normal' ? 'white' : '#6b7280'} />
+              <Feather name="user" size={20} color={userType === 'normal' ? 'white' : '#6b7280'} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -134,9 +174,42 @@ export default function SignupScreen() {
               accessibilityRole="button"
               accessibilityLabel="Service provider"
             >
-              <Briefcase name="briefcase" size={20} color={userType === 'service_provider' ? 'white' : '#6b7280'} />
+              <Feather name="briefcase" size={20} color={userType === 'service_provider' ? 'white' : '#6b7280'} />
             </TouchableOpacity>
           </View>
+
+          {userType === 'service_provider' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Sector ID</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {isDetectingSector ? (
+                  <ActivityIndicator size="small" color="#6b7280" />
+                ) : (
+                  <Text style={{ color: sectorAuto ? '#111827' : '#9ca3af' }}>
+                    {sectorAuto ? `Detected: ${sectorAuto}` : 'Unable to detect automatically'}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => setUseCustomSector(!useCustomSector)}
+                style={{ alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f3f4f6', marginBottom: 8 }}
+              >
+                <Text style={{ color: '#111827' }}>{useCustomSector ? 'Use detected sector' : 'Choose different sector'}</Text>
+              </TouchableOpacity>
+              {useCustomSector && (
+                <View style={styles.dropdownContainer}>
+                  <ScrollView style={{ maxHeight: 160 }}>
+                    {sectors.map((s) => (
+                      <TouchableOpacity key={s} style={styles.dropdownItem} onPress={() => setSector(s)}>
+                        <Text style={{ color: sector === s ? '#3b82f6' : '#111827' }}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <Text style={{ marginTop: 8, color: '#6b7280' }}>Selected: {sector || 'None'}</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
@@ -235,6 +308,19 @@ const styles = StyleSheet.create({
   },
   userTypeTextActive: {
     color: 'white',
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: '#f9fafb',
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   primaryButton: {
     backgroundColor: '#10b981',

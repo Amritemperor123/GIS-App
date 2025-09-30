@@ -86,12 +86,6 @@ export default function LoginScreen() {
           <TouchableOpacity onPress={() => router.replace('/signup')} style={{ marginTop: 16, alignItems: 'center' }}>
             <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '500' }}>Don't have an account? Sign Up</Text>
           </TouchableOpacity>
-
-          <View style={styles.demoInfo}>
-            <Text style={styles.demoTitle}>Demo:</Text>
-            <Text style={styles.demoText}>Sign up with any username to login as normal user</Text>
-            <Text style={styles.demoText}>Or use username "jeet" or "aman" for service provider access</Text>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
