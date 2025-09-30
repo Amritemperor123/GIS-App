@@ -2,16 +2,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import MapView, { Marker, Polygon, Polyline, Region } from "react-native-maps";
 import { View, Dimensions, TouchableOpacity, Text, Switch, Alert } from "react-native";
-import { MapPin, Layers, Layers3, Route, Map } from "lucide-react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MapPin } from "lucide-react-native";
 import * as Location from 'expo-location';
+import { useAuth } from "../contexts/AuthContext";
+import { useJobs, Job } from "../contexts/JobsContext";
+import { useColorScheme } from "../hooks/use-color-scheme";
 // Import local GeoJSON
 import dataLayer from "../assets/layers/data.geojson";
-import lineLayer from "../assets/layers/line_layer.geojson";
-import lineStrings from "../assets/layers/line_strings.geojson";
-import mainLayer from "../assets/layers/main_layer.geojson";
 
-export default function CustomMap() {
+type MapProps = { mapDarkMode?: boolean };
+
+export default function CustomMap({ mapDarkMode }: MapProps) {
+  const { user } = useAuth();
+  const colorScheme = useColorScheme();
   const mapRef = useRef<MapView | null>(null);
+  const insets = useSafeAreaInsets();
   const DEFAULT_LOCATION = { latitude: 25.3176, longitude: 82.9739 }; // Varanasi
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationPermission, setLocationPermission] = useState<Location.LocationPermissionResponse | null>(null);
@@ -19,9 +25,6 @@ export default function CustomMap() {
 
   // UI toggles similar to web layer control
   const [showDataLayer, setShowDataLayer] = useState(true);
-  const [showLineLayer, setShowLineLayer] = useState(true);
-  const [showLineStrings, setShowLineStrings] = useState(true);
-  const [showMainLayer, setShowMainLayer] = useState(true);
   const [layersOpen, setLayersOpen] = useState(true);
 
   // Request location permission and get current location
@@ -175,9 +178,34 @@ export default function CustomMap() {
     return lines;
   };
 
-  const lineLayerLines = useMemo(() => buildLinesFrom(lineLayer), []);
-  const lineStringsLines = useMemo(() => buildLinesFrom(lineStrings), []);
-  const mainLayerLines = useMemo(() => buildLinesFrom(mainLayer), []);
+  const isServiceProvider = user?.type === 'service_provider';
+  const { jobs } = useJobs();
+
+  const markerColorFor = (status: string) => {
+    switch (status) {
+      case 'new': return '#ef4444'; // red
+      case 'accepted': return '#f97316'; // orange
+      case 'in_progress': return '#f59e0b'; // yellow
+      case 'completed': return '#10b981'; // green
+      default: return '#ef4444';
+    }
+  };
+
+  const darkMapStyle = useMemo(
+    () => [
+      { elementType: "geometry", stylers: [{ color: "#1f2937" }] },
+      { elementType: "labels.text.fill", stylers: [{ color: "#9ca3af" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#111827" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ color: "#374151" }] },
+      { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#d1d5db" }] },
+      { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e7490" }] },
+      { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1f2937" }] },
+      { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#4b5563" }] }
+    ],
+    []
+  );
+
+  const effectiveDark = typeof mapDarkMode === 'boolean' ? mapDarkMode : (colorScheme === 'dark');
 
   return (
     <View className="flex-1">
@@ -194,57 +222,20 @@ export default function CustomMap() {
           longitudeDelta: 15,
         }}
         showsUserLocation
+        customMapStyle={effectiveDark ? darkMapStyle : []}
       >
-        {showDataLayer &&
+        {isServiceProvider && showDataLayer &&
           dataPolygons.map(({ coords, key }) => (
             <Polygon key={key} coordinates={coords} strokeColor="#2563eb" fillColor="rgba(37,99,235,0.2)" />
           ))}
 
-        {showLineLayer &&
-          lineLayerLines.map(({ coords, key }) => (
-            <Polyline key={key} coordinates={coords} strokeColor="#ef4444" strokeWidth={3} />
-          ))}
+        {jobs.map((job) => (
+          <Marker key={job.id} coordinate={job.location} title={`Job - ${job.status}`} pinColor={markerColorFor(job.status)} />
+        ))}
 
-        {showLineStrings &&
-          lineStringsLines.map(({ coords, key }) => (
-            <Polyline key={key} coordinates={coords} strokeColor="#f97316" strokeWidth={3} />
-          ))}
-
-        {showMainLayer &&
-          mainLayerLines.map(({ coords, key }) => (
-            <Polyline key={key} coordinates={coords} strokeColor="#10b981" strokeWidth={3} />
-          ))}
-
-        {userLocation && <Marker coordinate={userLocation} title="You are here" />}
       </MapView>
 
-      <View className="absolute top-4 right-4 bg-white/95 p-3 rounded-lg gap-2 shadow-lg">
-        <TouchableOpacity onPress={() => setLayersOpen((v) => !v)} className="py-0.5">
-          <Text className="font-semibold mb-1">Layers {layersOpen ? "▾" : "▸"}</Text>
-        </TouchableOpacity>
-        {layersOpen && (
-          <>
-            <View className="flex-row items-center justify-between gap-2">
-              <Layers color="#111827" />
-              <Switch value={showDataLayer} onValueChange={setShowDataLayer} />
-            </View>
-            <View className="flex-row items-center justify-between gap-2">
-              <Route color="#111827" />
-              <Switch value={showLineLayer} onValueChange={setShowLineLayer} />
-            </View>
-            <View className="flex-row items-center justify-between gap-2">
-              <Layers3 color="#111827" />
-              <Switch value={showLineStrings} onValueChange={setShowLineStrings} />
-            </View>
-            <View className="flex-row items-center justify-between gap-2">
-              <Map color="#111827" />
-              <Switch value={showMainLayer} onValueChange={setShowMainLayer} />
-            </View>
-          </>
-        )}
-      </View>
-
-      <View className="absolute bottom-4 right-4">
+      <View className="absolute right-4 items-end" style={{ bottom: (insets.bottom || 0) + 20 }}>
         <TouchableOpacity
           onPress={handleLocate}
           disabled={isLoadingLocation}

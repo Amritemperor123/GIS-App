@@ -1,20 +1,27 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Text, Alert, Modal } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Modal, Switch } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView from "../components/MapView";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../contexts/NotificationContext";
+import { useJobs } from "../contexts/JobsContext";
 import { getSectorForLocation } from "../utils/locationUtils";
 import { router } from 'expo-router';
-import { Camera, LogOut, X } from 'lucide-react-native';
+import { Camera, LogOut, X, UserCircle2, Bell, BarChart3, LayoutDashboard, Moon, Sun } from 'lucide-react-native';
+import { useColorScheme } from "../hooks/use-color-scheme";
 
 function HomeScreenContent() {
   const { user, logout } = useAuth();
   const { addNotification } = useNotifications();
+  const { createJob } = useJobs();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mapDarkMode, setMapDarkMode] = useState<boolean>(useColorScheme() === 'dark');
+  const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
     Alert.alert(
@@ -74,7 +81,13 @@ function HomeScreenContent() {
         const sectorInfo = getSectorForLocation(userLocation);
         
         if (sectorInfo) {
-          // Add notification for the service provider
+          // Create job and notify providers in sector
+          createJob({
+            sector: sectorInfo.sector,
+            location: userLocation,
+            imageUri: result.assets[0].uri,
+            createdBy: user?.name || 'Unknown User',
+          });
           addNotification({
             imageUrl: result.assets[0].uri,
             location: userLocation,
@@ -108,46 +121,96 @@ function HomeScreenContent() {
     router.push('/dashboard');
   };
 
+  const handleOpenSidebar = () => setIsSidebarOpen(true);
+  const handleCloseSidebar = () => setIsSidebarOpen(false);
+  const handleNotificationsPress = () => {
+    if (user?.type === 'service_provider') {
+      router.push('/dashboard');
+    } else {
+      Alert.alert('Notifications', 'Notifications view is coming soon.');
+    }
+    setIsSidebarOpen(false);
+  };
+  const handleStatisticsPress = () => {
+    Alert.alert('Statistics', 'Statistics view is coming soon.');
+    setIsSidebarOpen(false);
+  };
+  const handleLogoutPress = () => {
+    setIsSidebarOpen(false);
+    handleLogout();
+  };
+
   if (user?.type === 'service_provider') {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome, {user.name}</Text>
-            <Text style={styles.sectorText}>{user.sector} Sector Provider</Text>
-          </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.providerActions}>
-          <TouchableOpacity 
-            style={styles.dashboardButton} 
-            onPress={handleServiceProviderAccess}
-          >
-            <Text style={styles.dashboardButtonText}>View Dashboard</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+        <TouchableOpacity style={[styles.profileFab, { top: insets.top + 12 }]} onPress={handleOpenSidebar} accessibilityRole="button" accessibilityLabel="Open profile menu">
+          <UserCircle2 color="#111827" />
+        </TouchableOpacity>
+        <MapView mapDarkMode={mapDarkMode} />
 
-        <MapView />
-      </View>
+        {isSidebarOpen && (
+          <View style={styles.sidebarOverlay}>
+            <TouchableOpacity style={styles.sidebarBackdrop} activeOpacity={1} onPress={handleCloseSidebar} />
+            <View style={styles.sidebar}>
+              <View style={styles.sidebarHeader}>
+                <Text style={styles.sidebarTitle}>Menu</Text>
+                <TouchableOpacity onPress={handleCloseSidebar} accessibilityRole="button" accessibilityLabel="Close menu">
+                  <X color="#111827" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.profileSection}>
+                <View style={styles.profileAvatar}>
+                  <Text style={styles.profileAvatarText}>{(user?.name || 'U').slice(0,1).toUpperCase()}</Text>
+                </View>
+                <View>
+                  <Text style={styles.profileName}>{user?.name}</Text>
+                  <Text style={styles.profileSubtext}>Service Provider • {user?.sector}</Text>
+                </View>
+              </View>
+              <View style={styles.sidebarContent}>
+                <View style={styles.menuList}>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleServiceProviderAccess}>
+                    <LayoutDashboard color="#111827" />
+                    <Text style={styles.menuItemText}>Dashboard</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleNotificationsPress}>
+                    <Bell color="#111827" />
+                    <Text style={styles.menuItemText}>Notifications</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={handleStatisticsPress}>
+                    <BarChart3 color="#111827" />
+                    <Text style={styles.menuItemText}>Statistics</Text>
+                  </TouchableOpacity>
+                  <View style={styles.menuItemRow}>
+                    {mapDarkMode ? <Moon color="#111827" /> : <Sun color="#111827" />}
+                    {mapDarkMode ? <Text style={styles.menuItemText}>Dark Mode</Text> : <Text style={styles.menuItemText}>Light Mode</Text>}
+                    <View style={{ flex: 1 }} />
+                    <Switch value={mapDarkMode} onValueChange={setMapDarkMode} />
+                  </View>
+                </View>
+                <View style={styles.sidebarFooter}>
+                  <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleLogoutPress}>
+                    <LogOut color="#ef4444" />
+                    <Text style={[styles.menuItemText, styles.menuItemDangerText]}>Logout</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome, {user?.name}</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} accessibilityRole="button" accessibilityLabel="Logout">
-          <LogOut color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <MapView />
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+      <TouchableOpacity style={[styles.profileFab, { top: insets.top + 12 }]} onPress={handleOpenSidebar} accessibilityRole="button" accessibilityLabel="Open profile menu">
+        <UserCircle2 color="#111827" />
+      </TouchableOpacity>
+        <MapView mapDarkMode={mapDarkMode} />
 
       <TouchableOpacity
-        style={[styles.uploadButton, isUploading && styles.uploadButtonDisabled]}
+        style={[styles.uploadButton, { bottom: insets.bottom + 20 }, isUploading && styles.uploadButtonDisabled]}
         onPress={() => setShowUploadModal(true)}
         disabled={isUploading}
         accessibilityRole="button"
@@ -192,13 +255,77 @@ function HomeScreenContent() {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {isSidebarOpen && (
+        <View style={styles.sidebarOverlay}>
+          <TouchableOpacity style={styles.sidebarBackdrop} activeOpacity={1} onPress={handleCloseSidebar} />
+          <View style={styles.sidebar}>
+            <View style={styles.sidebarHeader}>
+              <Text style={styles.sidebarTitle}>Menu</Text>
+              <TouchableOpacity onPress={handleCloseSidebar} accessibilityRole="button" accessibilityLabel="Close menu">
+                <X color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.profileSection}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>{(user?.name || 'U').slice(0,1).toUpperCase()}</Text>
+              </View>
+              <View>
+                <Text style={styles.profileName}>{user?.name}</Text>
+                <Text style={styles.profileSubtext}>Normal User</Text>
+              </View>
+            </View>
+            <View style={styles.sidebarContent}>
+              <View style={styles.menuList}>
+                <TouchableOpacity style={styles.menuItem} onPress={handleNotificationsPress}>
+                  <Bell color="#111827" />
+                  <Text style={styles.menuItemText}>Notifications</Text>
+                </TouchableOpacity>
+                <View style={styles.menuItemRow}>
+                  {mapDarkMode ? <Moon color="#111827" /> : <Sun color="#111827" />}
+                  {mapDarkMode ? <Text style={styles.menuItemText}>Dark Mode</Text> : <Text style={styles.menuItemText}>Light Mode</Text>}
+                  <View style={{ flex: 1 }} />
+                  <Switch value={mapDarkMode} onValueChange={setMapDarkMode} />
+                </View>
+                <TouchableOpacity style={styles.menuItem} onPress={handleStatisticsPress}>
+                  <BarChart3 color="#111827" />
+                  <Text style={styles.menuItemText}>Statistics</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.sidebarFooter}>
+                <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleLogoutPress}>
+                  <LogOut color="#ef4444" />
+                  <Text style={[styles.menuItemText, styles.menuItemDangerText]}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  profileFab: {
+    position: 'absolute',
+    top: 20,
+    left: 16,
+    zIndex: 50,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
@@ -324,6 +451,110 @@ const styles = StyleSheet.create({
   uploadModalButtonText: {
     color: 'white',
     fontWeight: '500',
+  },
+  sidebarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+  },
+  sidebarBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sidebar: {
+    width: 280,
+    backgroundColor: 'white',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
+    display: 'flex',
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sidebarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    marginBottom: 8,
+  },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarText: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  profileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  profileSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  menuList: {
+    paddingTop: 8,
+    gap: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  menuItemText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  menuItemDanger: {
+    borderBottomWidth: 0,
+    marginTop: 4,
+  },
+  menuItemDangerText: {
+    color: '#ef4444',
+  },
+  sidebarContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  sidebarFooter: {
+    paddingTop: 12,
   },
 });
 

@@ -7,6 +7,7 @@ import '../global.css';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
+import { JobsProvider } from '../contexts/JobsContext';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -14,6 +15,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <NotificationProvider>
+        <JobsProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
@@ -23,6 +25,7 @@ export default function RootLayout() {
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
+        </JobsProvider>
       </NotificationProvider>
     </AuthProvider>
   );

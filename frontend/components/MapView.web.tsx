@@ -2,12 +2,14 @@
 import React, { useState } from "react";
 import { View, Text, Switch, TouchableOpacity, Linking } from "react-native";
 import { MapPin } from "lucide-react-native";
+import { useAuth } from "../contexts/AuthContext";
+import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function WebMapFallback() {
+  const { user } = useAuth();
+  const colorScheme = useColorScheme();
   const [showDataLayer, setShowDataLayer] = useState(true);
-  const [showLineLayer, setShowLineLayer] = useState(true);
-  const [showLineStrings, setShowLineStrings] = useState(true);
-  const [showMainLayer, setShowMainLayer] = useState(true);
+  const [mapDarkMode] = useState<boolean>(colorScheme === 'dark');
 
   const handleOpenWebApp = () => {
     Linking.openURL("/");
@@ -25,29 +27,10 @@ export default function WebMapFallback() {
         </TouchableOpacity>
       </View>
 
-      <View className="absolute top-4 right-4 bg-white/95 p-3 rounded-lg gap-2 shadow-lg">
-        <TouchableOpacity className="py-0.5">
-          <Text className="font-semibold mb-1">Layers ▾</Text>
-        </TouchableOpacity>
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-xs text-gray-900">Digital Boundaries</Text>
-          <Switch value={showDataLayer} onValueChange={setShowDataLayer} />
-        </View>
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-xs text-gray-900">Lines</Text>
-          <Switch value={showLineLayer} onValueChange={setShowLineLayer} />
-        </View>
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-xs text-gray-900">Strings</Text>
-          <Switch value={showLineStrings} onValueChange={setShowLineStrings} />
-        </View>
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-xs text-gray-900">Main Layer</Text>
-          <Switch value={showMainLayer} onValueChange={setShowMainLayer} />
-        </View>
-      </View>
+      {/* Dark mode toggle moved to sidebar (web fallback) */}
 
-      <View className="absolute bottom-4 right-4 mb-24">
+      <View className="absolute bottom-4 right-4 mb-24 items-end gap-2">
+        {/* Toggle removed here as well */}
         <TouchableOpacity className="bg-white border border-gray-300 py-2 px-2.5 rounded-md items-center">
           <Text className="text-sm"><MapPin className="w-4 h-4"/> Locate me (native only)</Text>
         </TouchableOpacity>

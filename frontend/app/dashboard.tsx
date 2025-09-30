@@ -11,33 +11,29 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications, Notification } from '../contexts/NotificationContext';
+import { useJobs, Job } from '../contexts/JobsContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { router } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 
 function ServiceProviderDashboardContent() {
   const { user, logout } = useAuth();
   const { notifications, getNotificationsForSector, markAsRead, loadNotifications } = useNotifications();
+  const { getJobsForSector, completedCountForSector } = useJobs();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadNotifications();
   }, []);
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: logout },
-      ]
-    );
-  };
-
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadNotifications();
     setRefreshing(false);
+  };
+
+  const handleBackToMap = () => {
+    router.back();
   };
 
   const handleNotificationPress = (notification: Notification) => {
@@ -89,28 +85,59 @@ function ServiceProviderDashboardContent() {
     : notifications;
 
   const unreadCount = sectorNotifications.filter(n => !n.isRead).length;
+  const sectorJobs = user?.sector ? getJobsForSector(user.sector) : [];
+  const completedJobs = user?.sector ? completedCountForSector(user.sector) : 0;
+  const activeJob = sectorJobs.find(j => j.status === 'accepted' || j.status === 'in_progress') || null;
+  const progressPct = activeJob
+    ? (activeJob.status === 'accepted' ? 0.33 : activeJob.status === 'in_progress' ? 0.66 : activeJob.status === 'completed' ? 1 : 0)
+    : 0;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackToMap}>
+          <ArrowLeft color="#3b82f6" size={24} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
           <Text style={styles.welcomeText}>Welcome, {user?.name}</Text>
           <Text style={styles.sectorText}>{user?.sector} Sector Provider</Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{sectorNotifications.length}</Text>
-          <Text style={styles.statLabel}>Total Notifications</Text>
+          <Text style={styles.statNumber}>{completedJobs}</Text>
+          <Text style={styles.statLabel}>Completed Works</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{sectorJobs.length}</Text>
+          <Text style={styles.statLabel}>Total Jobs</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{unreadCount}</Text>
-          <Text style={styles.statLabel}>Unread</Text>
+          <Text style={styles.statLabel}>Unread Notices</Text>
         </View>
+      </View>
+
+      <View style={styles.activeJobCard}>
+        <Text style={styles.activeJobTitle}>Active Job</Text>
+        {activeJob ? (
+          <>
+            <Text style={styles.activeJobSubtitle}>Status: {activeJob.status.replace('_', ' ')}</Text>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.round(progressPct * 100)}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{Math.round(progressPct * 100)}%</Text>
+            <Text style={styles.imagesTitle}>Images</Text>
+            <View style={styles.imagesRow}>
+              {activeJob.images.map((img) => (
+                <Image key={img.uploadedAt} source={{ uri: img.uri }} style={styles.previewImage} />
+              ))}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.noActiveText}>No active job currently.</Text>
+        )}
       </View>
 
       <View style={styles.notificationsHeader}>
@@ -149,12 +176,18 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 8,
+  },
+  headerContent: {
+    flex: 1,
   },
   welcomeText: {
     fontSize: 20,
@@ -180,6 +213,67 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 16,
+  },
+  activeJobCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  activeJobTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  activeJobSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 9999,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressBarFill: {
+    height: 8,
+    backgroundColor: '#3b82f6',
+  },
+  progressText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  imagesTitle: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  imagesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  previewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+  },
+  noActiveText: {
+    color: '#6b7280',
+    fontSize: 14,
   },
   statItem: {
     flex: 1,
