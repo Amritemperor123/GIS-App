@@ -11,7 +11,9 @@ import { useJobs } from "../contexts/JobsContext";
 import { getSectorForLocation } from "../utils/locationUtils";
 import { router } from 'expo-router';
 import { Camera, LogOut, X, UserCircle2, Bell, BarChart3, LayoutDashboard, Moon, Sun } from 'lucide-react-native';
+import { apiSignup, apiLogin, apiUpdateUser, apiDeleteUser } from '../utils/api';
 import { useColorScheme } from "../hooks/use-color-scheme";
+import { BASE_URL } from "../utils/api";
 
 function HomeScreenContent() {
   const { user, logout } = useAuth();
@@ -55,7 +57,7 @@ function HomeScreenContent() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        base64: false,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -86,14 +88,37 @@ function HomeScreenContent() {
             sector: sectorInfo.sector,
             location: userLocation,
             imageUri: result.assets[0].uri,
-            createdBy: user?.name || 'Unknown User',
+            createdBy: user?.username || 'Unknown User',
           });
-          addNotification({
-            imageUrl: result.assets[0].uri,
-            location: userLocation,
-            sector: sectorInfo.sector,
-            uploadedBy: user?.name || 'Unknown User',
-          });
+
+
+          // Send image to backend
+          try {
+            const response = await fetch(`${BASE_URL}/api/images`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: user?.id,
+                image: result.assets[0].base64,
+                location: JSON.stringify(userLocation),
+                sector: sectorInfo.sector,
+              }),
+            });
+            const responseData = await response.json();
+            if (!responseData.success) {
+              throw new Error(responseData.error || 'Failed to save image to database');
+            }
+          } catch (error) {
+            console.error('Error saving image to database:', error);
+            Alert.alert('Error', 'Failed to save image to the database. Please try again.');
+            // Revert the job creation if the API call fails
+            // This is a simple example; a more robust solution would be needed for production
+            // For example, using a transactional approach or a background job queue
+            // For now, we'll just log the error and alert the user
+          }
+
 
           Alert.alert(
             'Upload Successful',
@@ -127,12 +152,16 @@ function HomeScreenContent() {
     if (user?.type === 'service_provider') {
       router.push('/dashboard');
     } else {
-      Alert.alert('Notifications', 'Notifications view is coming soon.');
+      router.push('/notifications');
     }
     setIsSidebarOpen(false);
   };
   const handleStatisticsPress = () => {
-    Alert.alert('Statistics', 'Statistics view is coming soon.');
+    router.push('/statistics');
+    setIsSidebarOpen(false);
+  };
+  const handleMyUploadsPress = () => {
+    router.push('/my-uploads');
     setIsSidebarOpen(false);
   };
   const handleLogoutPress = () => {
@@ -160,10 +189,10 @@ function HomeScreenContent() {
               </View>
               <View style={styles.profileSection}>
                 <View style={styles.profileAvatar}>
-                  <Text style={styles.profileAvatarText}>{(user?.name || 'U').slice(0,1).toUpperCase()}</Text>
+                  <Text style={styles.profileAvatarText}>{(user?.username || 'U').slice(0,1).toUpperCase()}</Text>
                 </View>
                 <View>
-                  <Text style={styles.profileName}>{user?.name}</Text>
+                  <Text style={styles.profileName}>{user?.username}</Text>
                   <Text style={styles.profileSubtext}>Service Provider • {user?.sector}</Text>
                 </View>
               </View>
@@ -210,7 +239,7 @@ function HomeScreenContent() {
         <MapView mapDarkMode={mapDarkMode} />
 
       <TouchableOpacity
-        style={[styles.uploadButton, { bottom: insets.bottom + 20 }, isUploading && styles.uploadButtonDisabled]}
+        style={[styles.uploadButton, { bottom: insets.bottom + 70 }, isUploading && styles.uploadButtonDisabled]}
         onPress={() => setShowUploadModal(true)}
         disabled={isUploading}
         accessibilityRole="button"
@@ -268,10 +297,10 @@ function HomeScreenContent() {
             </View>
             <View style={styles.profileSection}>
               <View style={styles.profileAvatar}>
-                <Text style={styles.profileAvatarText}>{(user?.name || 'U').slice(0,1).toUpperCase()}</Text>
+                <Text style={styles.profileAvatarText}>{(user?.username || 'U').slice(0,1).toUpperCase()}</Text>
               </View>
               <View>
-                <Text style={styles.profileName}>{user?.name}</Text>
+                <Text style={styles.profileName}>{user?.username}</Text>
                 <Text style={styles.profileSubtext}>Normal User</Text>
               </View>
             </View>
@@ -290,6 +319,10 @@ function HomeScreenContent() {
                 <TouchableOpacity style={styles.menuItem} onPress={handleStatisticsPress}>
                   <BarChart3 color="#111827" />
                   <Text style={styles.menuItemText}>Statistics</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleMyUploadsPress}>
+                  <Camera color="#111827" />
+                  <Text style={styles.menuItemText}>My Uploads</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.sidebarFooter}>
@@ -315,12 +348,14 @@ const styles = StyleSheet.create({
     top: 20,
     left: 16,
     zIndex: 50,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -377,13 +412,13 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     position: 'absolute',
-    bottom: 20,
     left: 20,
-    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#3b82f6',
-    paddingVertical: 16,
-    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

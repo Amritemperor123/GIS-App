@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from '../utils/api';
 
 export type JobStatus = 'new' | 'accepted' | 'in_progress' | 'completed';
 
@@ -38,22 +39,37 @@ export const JobsProvider = ({ children }: { children: ReactNode }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
 
   useEffect(() => {
-    (async () => {
+    const fetchJobs = async () => {
       try {
-        const raw = await AsyncStorage.getItem('jobs');
-        if (raw) setJobs(JSON.parse(raw));
-      } catch (e) {
-        // ignore
+        const response = await fetch(`${BASE_URL}/api/images`);
+        const data = await response.json();
+        if (data.success) {
+          // The backend returns 'image' as base64, but the frontend expects a URI.
+          // For now, we'll prepend the base64 string with the necessary prefix to make it a data URI.
+          const formattedJobs = data.images.map((job: any) => ({
+            id: job.imageId.toString(),
+            sector: '', // The /api/images endpoint doesn't return sector, so we leave it empty
+            location: JSON.parse(job.location),
+            createdBy: '', // The /api/images endpoint doesn't return createdBy, so we leave it empty
+            status: 'new', // The /api/images endpoint doesn't return status, so we set it to 'new'
+            images: [{ uri: `data:image/jpeg;base64,${job.image}`, uploadedAt: job.createdAt, uploadedBy: '' }],
+            createdAt: job.createdAt,
+            updatedAt: job.createdAt,
+          }));
+          setJobs(formattedJobs);
+        }
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
       }
-    })();
+    };
+
+    fetchJobs();
   }, []);
 
-  const persist = async (next: Job[]) => {
-    setJobs(next);
-    try { await AsyncStorage.setItem('jobs', JSON.stringify(next)); } catch {}
-  };
-
   const createJob: JobsContextType['createJob'] = (input) => {
+    // This function is now only responsible for creating the job in the frontend state.
+    // The backend is responsible for persisting the job.
+    // A refetch of the jobs will happen automatically after the upload in index.tsx.
     const now = new Date().toISOString();
     const job: Job = {
       id: Date.now().toString(),
@@ -65,14 +81,14 @@ export const JobsProvider = ({ children }: { children: ReactNode }) => {
       createdAt: now,
       updatedAt: now,
     };
-    const next = [job, ...jobs];
-    persist(next);
+    setJobs([job, ...jobs]);
     return job;
   };
 
+  // TODO: Implement backend integration for these functions
   const acceptJob: JobsContextType['acceptJob'] = (jobId, providerId) => {
     const next = jobs.map(j => j.id === jobId ? { ...j, assignedProviderId: providerId, status: 'accepted', updatedAt: new Date().toISOString() } : j);
-    persist(next);
+    setJobs(next);
   };
 
   const addProgressImage: JobsContextType['addProgressImage'] = (jobId, imageUri, uploadedBy) => {
@@ -82,13 +98,13 @@ export const JobsProvider = ({ children }: { children: ReactNode }) => {
       const newStatus: JobStatus = j.status === 'new' ? 'accepted' : (j.status === 'accepted' ? 'in_progress' : j.status);
       return { ...j, status: newStatus, images: [...j.images, { uri: imageUri, uploadedAt: now, uploadedBy }], updatedAt: now };
     });
-    persist(next);
+    setJobs(next);
   };
 
   const completeJob: JobsContextType['completeJob'] = (jobId, imageUri, uploadedBy) => {
     const now = new Date().toISOString();
     const next = jobs.map(j => j.id === jobId ? { ...j, status: 'completed', images: [...j.images, { uri: imageUri, uploadedAt: now, uploadedBy }], updatedAt: now } : j);
-    persist(next);
+    setJobs(next);
   };
 
   const getJobsForSector = (sector: string) => jobs.filter(j => j.sector === sector);

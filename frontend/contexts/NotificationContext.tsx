@@ -1,25 +1,21 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { BASE_URL } from '../utils/api';
+import { useAuth } from './AuthContext';
 
 export interface Notification {
-  id: string;
-  imageUrl: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  sector: string;
-  uploadedBy: string;
-  uploadedAt: Date;
+  notificationId: number;
+  recipientUserId: number;
+  type: string;
+  jobId: number;
+  message: string;
   isRead: boolean;
+  createdAt: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, 'id' | 'uploadedAt' | 'isRead'>) => void;
-  markAsRead: (notificationId: string) => void;
-  getNotificationsForSector: (sector: string) => Notification[];
-  loadNotifications: () => Promise<void>;
+  addNotification: (notification: Omit<Notification, 'notificationId' | 'createdAt' | 'isRead'>) => void;
+  markAsRead: (notificationId: number) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -29,70 +25,65 @@ interface NotificationProviderProps {
 }
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = (notificationData: Omit<Notification, 'id' | 'uploadedAt' | 'isRead'>) => {
-    const newNotification: Notification = {
-      ...notificationData,
-      id: Date.now().toString(),
-      uploadedAt: new Date(),
-      isRead: false,
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (user) {
+        try {
+          const response = await fetch(`${BASE_URL}/api/notifications/${user.id}`);
+          const data = await response.json();
+          if (data.success) {
+            setNotifications(data.notifications);
+          }
+        } catch (error) {
+          console.error('Error fetching notifications:', error);
+        }
+      }
     };
 
-    setNotifications(prev => {
-      const updated = [newNotification, ...prev];
-      saveNotifications(updated);
-      return updated;
-    });
-  };
+    fetchNotifications();
+  }, [user]);
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => {
-      const updated = prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification
-      );
-      saveNotifications(updated);
-      return updated;
-    });
-  };
-
-  const getNotificationsForSector = (sector: string) => {
-    return notifications.filter(notification => notification.sector === sector);
-  };
-
-  const saveNotifications = async (notificationsToSave: Notification[]) => {
+  const addNotification = async (notificationData: Omit<Notification, 'notificationId' | 'createdAt' | 'isRead'>) => {
     try {
-      await AsyncStorage.setItem('notifications', JSON.stringify(notificationsToSave));
-    } catch (error) {
-      console.error('Error saving notifications:', error);
-    }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      const storedNotifications = await AsyncStorage.getItem('notifications');
-      if (storedNotifications) {
-        const parsed = JSON.parse(storedNotifications);
-        // Convert uploadedAt back to Date objects
-        const notificationsWithDates = parsed.map((n: any) => ({
-          ...n,
-          uploadedAt: new Date(n.uploadedAt)
-        }));
-        setNotifications(notificationsWithDates);
+      const response = await fetch(`${BASE_URL}/api/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Refetch notifications after adding a new one
+        const response = await fetch(`${BASE_URL}/api/notifications/${notificationData.recipientUserId}`);
+        const newData = await response.json();
+        if (newData.success) {
+          setNotifications(newData.notifications);
+        }
       }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('Error adding notification:', error);
     }
+  };
+
+  const markAsRead = (notificationId: number) => {
+    // TODO: Implement backend logic to mark notification as read
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.notificationId === notificationId
+          ? { ...notification, isRead: true }
+          : notification
+      )
+    );
   };
 
   const value: NotificationContextType = {
     notifications,
     addNotification,
     markAsRead,
-    getNotificationsForSector,
-    loadNotifications,
   };
 
   return (

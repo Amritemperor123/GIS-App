@@ -39,6 +39,31 @@ export async function apiLogin(params: { username: string; password: string }) {
   return res.json();
 }
 
+export async function apiUpdateUser(params: { id: number | string; username?: string; contact?: string; sector?: string | null }) {
+  const { id, ...updateData } = params;
+  const res = await fetch(`${BASE_URL}/api/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateData),
+  });
+  if (!res.ok) {
+    const data = await safeJson(res);
+    throw new Error(data?.error || 'Update failed');
+  }
+  return res.json();
+}
+
+export async function apiDeleteUser(id: number | string) {
+  const res = await fetch(`${BASE_URL}/api/users/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const data = await safeJson(res);
+    throw new Error(data?.error || 'Delete failed');
+  }
+  return res.json();
+}
+
 async function safeJson(res: Response) {
   try {
     return await res.json();
@@ -47,4 +72,4 @@ async function safeJson(res: Response) {
   }
 }
 
-
+export { BASE_URL };

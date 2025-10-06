@@ -1,9 +1,10 @@
 // components/MapView.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import MapView, { Marker, Polygon, Polyline, Region } from "react-native-maps";
-import { View, Dimensions, TouchableOpacity, Text, Switch, Alert } from "react-native";
+import MapView, { Marker, Polygon, Polyline, Region, Callout } from "react-native-maps";
+import { View, Dimensions, TouchableOpacity, Text, Switch, Alert, Image } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin } from "lucide-react-native";
+import { Crosshair } from 'lucide-react-native';
+
 import * as Location from 'expo-location';
 import { useAuth } from "../contexts/AuthContext";
 import { useJobs, Job } from "../contexts/JobsContext";
@@ -222,6 +223,8 @@ export default function CustomMap({ mapDarkMode }: MapProps) {
           longitudeDelta: 15,
         }}
         showsUserLocation
+        showsMyLocationButton
+        showsCompass
         customMapStyle={effectiveDark ? darkMapStyle : []}
       >
         {isServiceProvider && showDataLayer &&
@@ -230,7 +233,14 @@ export default function CustomMap({ mapDarkMode }: MapProps) {
           ))}
 
         {jobs.map((job) => (
-          <Marker key={job.id} coordinate={job.location} title={`Job - ${job.status}`} pinColor={markerColorFor(job.status)} />
+          <Marker key={job.id} coordinate={job.location} title={`Job - ${job.status}`} pinColor={markerColorFor(job.status)}>
+            <Callout>
+              <View>
+                <Text>{`Job - ${job.status}`}</Text>
+                <Text>{`Created at: ${new Date(job.createdAt).toLocaleString()}`}</Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
 
       </MapView>
@@ -245,7 +255,7 @@ export default function CustomMap({ mapDarkMode }: MapProps) {
           style={{ width: 44, height: 44 }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MapPin color="#111827" />
+          <Crosshair color="#111827" />
         </TouchableOpacity>
       </View>
     </View>
