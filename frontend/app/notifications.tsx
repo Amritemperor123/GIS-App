@@ -18,11 +18,11 @@ export default function NotificationsScreen() {
       </View>
       <FlatList
         data={notifications}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.notification_id.toString()}
         renderItem={({ item }) => (
           <View style={styles.notificationItem}>
-            <Text style={styles.notificationText}>{item.sector}</Text>
-            <Text style={styles.notificationSubtext}>Uploaded by: {item.uploadedBy}</Text>
+            <Text style={styles.notificationText}>{item.notification_target}</Text>
+            <Text style={styles.notificationSubtext}>Type: {item.type}</Text>
           </View>
         )}
         ListEmptyComponent={() => (

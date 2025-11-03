@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiLogin, apiSignup, apiUpdateUser } from '../utils/api';
+import { apiLogin, apiSignup, apiUpdateUser, apiDeleteUser } from '../utils/api';
 
 export interface User {
-  id: string;
+  user_id: number;
   username: string;
   contact?: string;
   type: 'normal' | 'service_provider';
@@ -52,13 +52,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       const result = await apiLogin({ username, password });
-      if (!result?.success || !result?.user) return false;
       const apiUser = result.user as any;
       const mappedUser: User = {
-        id: apiUser.id,
-        username: apiUser.username,
+        user_id: apiUser.user_id,
+        username: apiUser.user_name,
         contact: apiUser.contact,
-        type: apiUser.type,
+        type: apiUser.user_type,
         sector: apiUser.sector,
       };
       await AsyncStorage.setItem('user', JSON.stringify(mappedUser));
@@ -76,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       const result = await apiSignup(params);
-      return !!result?.success;
+      return !!result?.userId;
     } catch (error) {
       console.error('Signup error:', error);
       return false;
@@ -97,8 +96,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateUser = async (fields: { username?: string; contact?: string; sector?: string | null }): Promise<boolean> => {
     if (!user) return false;
     try {
-      await apiUpdateUser({ id: user.id, ...fields });
-      const updatedUser = { ...user, ...fields };
+      // Normalize sector null to undefined to match User type
+      const sanitizedFields = { ...fields, sector: fields.sector ?? undefined };
+      await apiUpdateUser({ id: user.user_id, ...sanitizedFields });
+      const updatedUser: User = { ...user, ...sanitizedFields };
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       return true;
@@ -111,7 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const deleteUser = async (): Promise<boolean> => {
     if (!user) return false;
     try {
-      await apiDeleteUser(user.id);
+      await apiDeleteUser(user.user_id);
       await logout();
       return true;
     } catch (e) {

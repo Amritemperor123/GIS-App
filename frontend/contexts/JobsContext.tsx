@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../utils/api';
+import { useAuth } from './AuthContext';
 
 export type JobStatus = 'new' | 'accepted' | 'in_progress' | 'completed';
 
@@ -11,105 +11,114 @@ export interface JobImage {
 }
 
 export interface Job {
-  id: string;
-  sector: string;
-  location: { latitude: number; longitude: number };
-  createdBy: string;
-  assignedProviderId?: string;
-  status: JobStatus;
+  job_id: number;
+  state: number;
+  location: string;
+  created_by: number;
+  accepted_by?: number;
+  key: number;
   images: JobImage[];
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
 }
 
 interface JobsContextType {
   jobs: Job[];
-  createJob: (input: { sector: string; location: { latitude: number; longitude: number }; imageUri: string; createdBy: string; }) => Job;
-  acceptJob: (jobId: string, providerId: string) => void;
-  addProgressImage: (jobId: string, imageUri: string, uploadedBy: string) => void;
-  completeJob: (jobId: string, imageUri: string, uploadedBy: string) => void;
+  createJob: (input: { state: number; location: string; created_by: number; }) => Promise<void>;
+  acceptJob: (jobId: number, providerId: number) => Promise<void>;
+  addProgressImage: (jobId: number, imageUri: string, uploadedBy: string) => Promise<void>;
+  completeJob: (jobId: number, imageUri: string, uploadedBy: string) => Promise<void>;
   getJobsForSector: (sector: string) => Job[];
-  getJobById: (jobId: string) => Job | undefined;
+  getJobById: (jobId: number) => Job | undefined;
   completedCountForSector: (sector: string) => number;
 }
 
 const JobsContext = createContext<JobsContextType | undefined>(undefined);
 
 export const JobsProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/api/images`);
-        const data = await response.json();
-        if (data.success) {
-          // The backend returns 'image' as base64, but the frontend expects a URI.
-          // For now, we'll prepend the base64 string with the necessary prefix to make it a data URI.
-          const formattedJobs = data.images.map((job: any) => ({
-            id: job.imageId.toString(),
-            sector: '', // The /api/images endpoint doesn't return sector, so we leave it empty
-            location: JSON.parse(job.location),
-            createdBy: '', // The /api/images endpoint doesn't return createdBy, so we leave it empty
-            status: 'new', // The /api/images endpoint doesn't return status, so we set it to 'new'
-            images: [{ uri: `data:image/jpeg;base64,${job.image}`, uploadedAt: job.createdAt, uploadedBy: '' }],
-            createdAt: job.createdAt,
-            updatedAt: job.createdAt,
-          }));
-          setJobs(formattedJobs);
-        }
-      } catch (error) {
-        console.error('Error fetching jobs:', error);
-      }
-    };
+  const fetchJobs = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/jobs`);
+      const data = await response.json();
+      setJobs(data.jobs);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchJobs();
   }, []);
 
-  const createJob: JobsContextType['createJob'] = (input) => {
-    // This function is now only responsible for creating the job in the frontend state.
-    // The backend is responsible for persisting the job.
-    // A refetch of the jobs will happen automatically after the upload in index.tsx.
-    const now = new Date().toISOString();
-    const job: Job = {
-      id: Date.now().toString(),
-      sector: input.sector,
-      location: input.location,
-      createdBy: input.createdBy,
-      status: 'new',
-      images: [{ uri: input.imageUri, uploadedAt: now, uploadedBy: input.createdBy }],
-      createdAt: now,
-      updatedAt: now,
-    };
-    setJobs([job, ...jobs]);
-    return job;
+  const createJob: JobsContextType['createJob'] = async (input) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      const data = await response.json();
+      if (data.jobId) {
+        fetchJobs();
+      }
+    } catch (error) {
+      console.error('Error creating job:', error);
+    }
   };
 
-  // TODO: Implement backend integration for these functions
-  const acceptJob: JobsContextType['acceptJob'] = (jobId, providerId) => {
-    const next = jobs.map(j => j.id === jobId ? { ...j, assignedProviderId: providerId, status: 'accepted', updatedAt: new Date().toISOString() } : j);
-    setJobs(next);
+  const acceptJob: JobsContextType['acceptJob'] = async (jobId, providerId) => {
+    try {
+      await fetch(`${BASE_URL}/api/jobs/${jobId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 2, accepted_by: providerId }),
+        }
+      );
+      fetchJobs();
+    } catch (error) {
+      console.error('Error accepting job:', error);
+    }
   };
 
-  const addProgressImage: JobsContextType['addProgressImage'] = (jobId, imageUri, uploadedBy) => {
-    const now = new Date().toISOString();
-    const next = jobs.map(j => {
-      if (j.id !== jobId) return j;
-      const newStatus: JobStatus = j.status === 'new' ? 'accepted' : (j.status === 'accepted' ? 'in_progress' : j.status);
-      return { ...j, status: newStatus, images: [...j.images, { uri: imageUri, uploadedAt: now, uploadedBy }], updatedAt: now };
-    });
-    setJobs(next);
+  const addProgressImage: JobsContextType['addProgressImage'] = async (jobId, imageUri, uploadedBy) => {
+    // This requires image upload logic, which is not yet implemented.
+    // For now, we will just update the job state.
+    try {
+      await fetch(`${BASE_URL}/api/jobs/${jobId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 3 }),
+        }
+      );
+      fetchJobs();
+    } catch (error) {
+      console.error('Error adding progress image:', error);
+    }
   };
 
-  const completeJob: JobsContextType['completeJob'] = (jobId, imageUri, uploadedBy) => {
-    const now = new Date().toISOString();
-    const next = jobs.map(j => j.id === jobId ? { ...j, status: 'completed', images: [...j.images, { uri: imageUri, uploadedAt: now, uploadedBy }], updatedAt: now } : j);
-    setJobs(next);
+  const completeJob: JobsContextType['completeJob'] = async (jobId, imageUri, uploadedBy) => {
+    // This requires image upload logic, which is not yet implemented.
+    // For now, we will just update the job state.
+    try {
+      await fetch(`${BASE_URL}/api/jobs/${jobId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 4 }),
+        }
+      );
+      fetchJobs();
+    } catch (error) {
+      console.error('Error completing job:', error);
+    }
   };
 
-  const getJobsForSector = (sector: string) => jobs.filter(j => j.sector === sector);
-  const getJobById = (jobId: string) => jobs.find(j => j.id === jobId);
-  const completedCountForSector = (sector: string) => jobs.filter(j => j.sector === sector && j.status === 'completed').length;
+  const getJobsForSector = (sector: string) => jobs.filter(j => j.location.includes(sector));
+  const getJobById = (jobId: number) => jobs.find(j => j.job_id === jobId);
+  const completedCountForSector = (sector: string) => jobs.filter(j => j.location.includes(sector) && j.state === 4).length;
 
   const value: JobsContextType = useMemo(() => ({
     jobs,

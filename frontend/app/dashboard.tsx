@@ -19,17 +19,42 @@ import { ArrowLeft } from 'lucide-react-native';
 function ServiceProviderDashboardContent() {
   const { user, logout } = useAuth();
   const { notifications, getNotificationsForSector, markAsRead, loadNotifications } = useNotifications();
-  const { getJobsForSector, completedCountForSector } = useJobs();
+  const { jobs, getJobsForSector, completedCountForSector } = useJobs();
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadNotifications();
+    const init = async () => {
+      try {
+        setIsLoading(true);
+        await loadNotifications();
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load notifications');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
   }, []);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadNotifications();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await loadNotifications();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to refresh notifications');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace('/login');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to logout');
+    }
   };
 
   const handleBackToMap = () => {
@@ -38,15 +63,13 @@ function ServiceProviderDashboardContent() {
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.isRead) {
-      markAsRead(notification.id);
+      markAsRead(notification.notification_id);
     }
     
     Alert.alert(
-      'Image Upload Notification',
-      `New image uploaded in ${notification.sector} sector by ${notification.uploadedBy}`,
-      [
-        { text: 'OK' }
-      ]
+      notification.type === 'IMAGE_UPLOAD' ? 'Image Upload Notification' : 'Job Update',
+      notification.notification_target,
+      [{ text: 'OK' }]
     );
   };
 
@@ -59,22 +82,21 @@ function ServiceProviderDashboardContent() {
       onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.notificationContent}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: item.imageUrl }} style={styles.notificationImage} />
-        </View>
         <View style={styles.notificationDetails}>
           <Text style={styles.notificationTitle}>
-            New Image Upload - {item.sector} Sector
+            {item.type === 'IMAGE_UPLOAD' ? 'New Image Upload' : 'Job Update'}
           </Text>
-          <Text style={styles.notificationSubtitle}>
-            Uploaded by: {item.uploadedBy}
+          <Text style={styles.notificationMessage}>
+            {item.notification_target}
           </Text>
           <Text style={styles.notificationTime}>
-            {item.uploadedAt.toLocaleString()}
+            {new Date(item.timestamp).toLocaleString()}
           </Text>
-          <Text style={styles.notificationLocation}>
-            Location: {item.location.latitude.toFixed(4)}, {item.location.longitude.toFixed(4)}
-          </Text>
+          {item.job_id && (
+            <Text style={styles.notificationSubtitle}>
+              Job ID: {item.job_id}
+            </Text>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -87,9 +109,9 @@ function ServiceProviderDashboardContent() {
   const unreadCount = sectorNotifications.filter(n => !n.isRead).length;
   const sectorJobs = user?.sector ? getJobsForSector(user.sector) : [];
   const completedJobs = user?.sector ? completedCountForSector(user.sector) : 0;
-  const activeJob = sectorJobs.find(j => j.status === 'accepted' || j.status === 'in_progress') || null;
+  const activeJob = sectorJobs.find(j => j.state === 2 || j.state === 3) || null;
   const progressPct = activeJob
-    ? (activeJob.status === 'accepted' ? 0.33 : activeJob.status === 'in_progress' ? 0.66 : activeJob.status === 'completed' ? 1 : 0)
+    ? (activeJob.state === 2 ? 0.33 : activeJob.state === 3 ? 0.66 : activeJob.state === 4 ? 1 : 0)
     : 0;
 
   return (
@@ -99,71 +121,82 @@ function ServiceProviderDashboardContent() {
           <ArrowLeft color="#3b82f6" size={24} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.welcomeText}>Welcome, {user?.name}</Text>
+          <Text style={styles.welcomeText}>Welcome, {user?.username}</Text>
           <Text style={styles.sectorText}>{user?.sector} Sector Provider</Text>
         </View>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{completedJobs}</Text>
-          <Text style={styles.statLabel}>Completed Works</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{sectorJobs.length}</Text>
-          <Text style={styles.statLabel}>Total Jobs</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{unreadCount}</Text>
-          <Text style={styles.statLabel}>Unread Notices</Text>
-        </View>
-      </View>
-
-      <View style={styles.activeJobCard}>
-        <Text style={styles.activeJobTitle}>Active Job</Text>
-        {activeJob ? (
-          <>
-            <Text style={styles.activeJobSubtitle}>Status: {activeJob.status.replace('_', ' ')}</Text>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${Math.round(progressPct * 100)}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{Math.round(progressPct * 100)}%</Text>
-            <Text style={styles.imagesTitle}>Images</Text>
-            <View style={styles.imagesRow}>
-              {activeJob.images.map((img) => (
-                <Image key={img.uploadedAt} source={{ uri: img.uri }} style={styles.previewImage} />
-              ))}
-            </View>
-          </>
-        ) : (
-          <Text style={styles.noActiveText}>No active job currently.</Text>
-        )}
-      </View>
-
-      <View style={styles.notificationsHeader}>
-        <Text style={styles.notificationsTitle}>Notifications</Text>
-        <TouchableOpacity onPress={handleRefresh}>
-          <Text style={styles.refreshText}>Refresh</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
-      {sectorNotifications.length === 0 ? (
+      {isLoading ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No notifications yet</Text>
-          <Text style={styles.emptyStateSubtext}>
-            You'll receive notifications when users upload images in your sector
-          </Text>
+          <Text>Loading...</Text>
         </View>
       ) : (
-        <FlatList
-          data={sectorNotifications}
-          renderItem={renderNotification}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-          contentContainerStyle={styles.notificationsList}
-        />
+        <>
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{completedJobs}</Text>
+              <Text style={styles.statLabel}>Completed Works</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{sectorJobs.length}</Text>
+              <Text style={styles.statLabel}>Total Jobs</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{unreadCount}</Text>
+              <Text style={styles.statLabel}>Unread Notices</Text>
+            </View>
+          </View>
+
+          <View style={styles.activeJobCard}>
+            <Text style={styles.activeJobTitle}>Active Job</Text>
+            {activeJob ? (
+              <>
+                <Text style={styles.activeJobSubtitle}>Status: {activeJob.state}</Text>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: `${Math.round(progressPct * 100)}%` }]} />
+                </View>
+                <Text style={styles.progressText}>{Math.round(progressPct * 100)}%</Text>
+                <Text style={styles.imagesTitle}>Images</Text>
+                <View style={styles.imagesRow}>
+                  {activeJob.images.map((img) => (
+                    <Image key={img.uploadedAt} source={{ uri: img.uri }} style={styles.previewImage} />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={styles.noActiveText}>No active job currently.</Text>
+            )}
+          </View>
+
+          <View style={styles.notificationsHeader}>
+            <Text style={styles.notificationsTitle}>Notifications</Text>
+            <TouchableOpacity onPress={handleRefresh}>
+              <Text style={styles.refreshText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+
+          {sectorNotifications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No notifications yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                You'll receive notifications when users upload images in your sector
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={sectorNotifications}
+              renderItem={renderNotification}
+              keyExtractor={(item) => item.notification_id.toString()}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              }
+              contentContainerStyle={styles.notificationsList}
+            />
+          )}
+        </>
       )}
     </View>
   );
@@ -201,12 +234,13 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     backgroundColor: '#ef4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   logoutButtonText: {
     color: 'white',
+    fontSize: 12,
     fontWeight: '500',
   },
   statsContainer: {
@@ -342,17 +376,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
   },
-  imageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  notificationImage: {
-    width: '100%',
-    height: '100%',
-  },
   notificationDetails: {
     flex: 1,
   },
@@ -362,17 +385,17 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     marginBottom: 4,
   },
-  notificationSubtitle: {
+  notificationMessage: {
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 2,
+    color: '#374151',
+    marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
     color: '#9ca3af',
     marginBottom: 2,
   },
-  notificationLocation: {
+  notificationSubtitle: {
     fontSize: 12,
     color: '#9ca3af',
   },
