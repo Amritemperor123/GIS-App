@@ -32,8 +32,10 @@ const createTables = () => {
       created_by INTEGER,
       accepted_by INTEGER,
       key INTEGER,
+      image_id INTEGER,
       FOREIGN KEY (created_by) REFERENCES Users(user_id),
-      FOREIGN KEY (accepted_by) REFERENCES Users(user_id)
+      FOREIGN KEY (accepted_by) REFERENCES Users(user_id),
+      FOREIGN KEY (image_id) REFERENCES Images(image_id)
     );
   `;
 

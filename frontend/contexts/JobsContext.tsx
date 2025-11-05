@@ -22,7 +22,7 @@ export interface Job {
 
 interface JobsContextType {
   jobs: Job[];
-  createJob: (input: { state: number; location: string; created_by: number; }) => Promise<void>;
+  createJob: (input: { state: number; location: string; created_by: number; image_id: number; }) => Promise<void>;
   acceptJob: (jobId: number, providerId: number) => Promise<void>;
   addProgressImage: (jobId: number, imageUri: string, uploadedBy: string) => Promise<void>;
   completeJob: (jobId: number, imageUri: string, uploadedBy: string) => Promise<void>;

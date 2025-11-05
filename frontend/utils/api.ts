@@ -14,10 +14,17 @@ function resolveBaseUrl(): string {
 const BASE_URL = resolveBaseUrl();
 
 export async function apiSignup(params: { username: string; contactNumber: string; password: string; userType?: 'normal' | 'service_provider'; sector?: string }) {
+  const { username, contactNumber, password, userType, sector } = params;
   const res = await fetch(`${BASE_URL}/api/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      user_name: username,
+      contact: contactNumber,
+      password,
+      user_type: userType,
+      sector,
+    }),
   });
   if (!res.ok) {
     const data = await safeJson(res);
@@ -27,16 +34,29 @@ export async function apiSignup(params: { username: string; contactNumber: strin
 }
 
 export async function apiLogin(params: { username: string; password: string }) {
+
+  const { username, password } = params;
+
   const res = await fetch(`${BASE_URL}/api/auth/login`, {
+
     method: 'POST',
+
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+
+    body: JSON.stringify({ user_name: username, password }),
+
   });
+
   if (!res.ok) {
+
     const data = await safeJson(res);
+
     throw new Error(data?.error || 'Login failed');
+
   }
+
   return res.json();
+
 }
 
 export async function apiUpdateUser(params: { id: number | string; username?: string; contact?: string; sector?: string | null }) {

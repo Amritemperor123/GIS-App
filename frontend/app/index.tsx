@@ -83,16 +83,8 @@ function HomeScreenContent() {
         const sectorInfo = getSectorForLocation(userLocation);
         
         if (sectorInfo) {
-          // Create job and notify providers in sector
-          createJob({
-            sector: sectorInfo.sector,
-            location: userLocation,
-            imageUri: result.assets[0].uri,
-            createdBy: user?.username || 'Unknown User',
-          });
-
-
           // Send image to backend
+          let imageId: number | null = null;
           try {
             const response = await fetch(`${BASE_URL}/api/images`, {
               method: 'POST',
@@ -100,7 +92,7 @@ function HomeScreenContent() {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                userId: user?.id,
+                userId: user?.user_id,
                 image: result.assets[0].base64,
                 location: JSON.stringify(userLocation),
                 sector: sectorInfo.sector,
@@ -110,21 +102,28 @@ function HomeScreenContent() {
             if (!responseData.success) {
               throw new Error(responseData.error || 'Failed to save image to database');
             }
+            imageId = responseData.imageId;
           } catch (error) {
             console.error('Error saving image to database:', error);
             Alert.alert('Error', 'Failed to save image to the database. Please try again.');
-            // Revert the job creation if the API call fails
-            // This is a simple example; a more robust solution would be needed for production
-            // For example, using a transactional approach or a background job queue
-            // For now, we'll just log the error and alert the user
+            return;
           }
 
+          if (imageId) {
+            // Create job and notify providers in sector
+            createJob({
+              state: 1,
+              location: JSON.stringify(userLocation),
+              created_by: user?.user_id,
+              image_id: imageId,
+            });
 
-          Alert.alert(
-            'Upload Successful',
-            `Image uploaded successfully! Service provider for ${sectorInfo.sector} sector (${sectorInfo.provider}) will be notified.`,
-            [{ text: 'OK' }]
-          );
+            Alert.alert(
+              'Upload Successful',
+              `Image uploaded successfully! Service provider for ${sectorInfo.sector} sector (${sectorInfo.provider}) will be notified.`,
+              [{ text: 'OK' }]
+            );
+          }
         } else {
           Alert.alert(
             'Location Not Covered',
