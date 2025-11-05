@@ -1,10 +1,14 @@
 
 import { Router } from 'express';
+import bodyParser from 'body-parser';
 import db from '../db/database';
 import fs from 'fs';
 import path from 'path';
 
 const router = Router();
+
+// Increase JSON body size limit specifically for image uploads
+router.use(bodyParser.json({ limit: '50mb' }));
 
 // Ensure the uploads directory exists
 const uploadsDir = path.join(__dirname, '..', 'db', 'images');

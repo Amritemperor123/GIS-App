@@ -5,7 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const sqlite3_1 = __importDefault(require("sqlite3"));
 const path_1 = __importDefault(require("path"));
-const dbPath = path_1.default.resolve(__dirname, '..\..\..\database\gis.db');
+// Store the SQLite database alongside compiled files under dist/db/gis.db
+const dbPath = path_1.default.resolve(__dirname, 'gis.db');
 const db = new sqlite3_1.default.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database', err.message);
@@ -34,8 +35,10 @@ const createTables = () => {
       created_by INTEGER,
       accepted_by INTEGER,
       key INTEGER,
+      image_id INTEGER,
       FOREIGN KEY (created_by) REFERENCES Users(user_id),
-      FOREIGN KEY (accepted_by) REFERENCES Users(user_id)
+      FOREIGN KEY (accepted_by) REFERENCES Users(user_id),
+      FOREIGN KEY (image_id) REFERENCES Images(image_id)
     );
   `;
     const createImagesTable = `

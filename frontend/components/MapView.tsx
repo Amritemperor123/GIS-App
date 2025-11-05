@@ -182,6 +182,23 @@ export default function CustomMap({ mapDarkMode }: MapProps) {
   const isServiceProvider = user?.type === 'service_provider';
   const { jobs } = useJobs();
 
+  const toCoordinate = (loc: any): { latitude: number; longitude: number } => {
+    if (!loc) return DEFAULT_LOCATION;
+    if (typeof loc === 'string') {
+      try {
+        const parsed = JSON.parse(loc);
+        if (parsed && typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
+          return { latitude: parsed.latitude, longitude: parsed.longitude };
+        }
+      } catch {}
+      return DEFAULT_LOCATION;
+    }
+    if (typeof loc === 'object' && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+      return { latitude: loc.latitude, longitude: loc.longitude };
+    }
+    return DEFAULT_LOCATION;
+  };
+
   const markerColorFor = (status: string) => {
     switch (status) {
       case 'new': return '#ef4444'; // red
@@ -233,11 +250,11 @@ export default function CustomMap({ mapDarkMode }: MapProps) {
           ))}
 
         {jobs.map((job) => (
-          <Marker key={job.id} coordinate={job.location} title={`Job - ${job.status}`} pinColor={markerColorFor(job.status)}>
+          <Marker key={job.job_id} coordinate={toCoordinate(job.location)} title={`Job - ${job.state}`} pinColor={markerColorFor(job.status)}>
             <Callout>
               <View>
-                <Text>{`Job - ${job.status}`}</Text>
-                <Text>{`Created at: ${new Date(job.createdAt).toLocaleString()}`}</Text>
+                <Text>{`Job ID: ${job.job_id}`}</Text>
+                <Text>{`State: ${job.state}`}</Text>
               </View>
             </Callout>
           </Marker>

@@ -1,7 +1,8 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 
-const dbPath = path.resolve(__dirname, '..\..\..\database\gis.db');
+// Store the SQLite database alongside compiled files under dist/db/gis.db
+const dbPath = path.resolve(__dirname, 'gis.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {

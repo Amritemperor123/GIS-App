@@ -18,12 +18,12 @@ router.get('/', (req, res) => {
 });
 // Create a new job
 router.post('/', (req, res) => {
-    const { state, location, created_by } = req.body;
+    const { state, location, created_by, image_id } = req.body;
     if (!state || !location || !created_by) {
         return res.status(400).json({ error: 'State, location, and created_by are required' });
     }
-    const sql = 'INSERT INTO Jobs (state, location, created_by, key) VALUES (?, ?, ?, ?)';
-    database_1.default.run(sql, [state, location, created_by, 0], function (err) {
+    const sql = 'INSERT INTO Jobs (state, location, created_by, image_id, key) VALUES (?, ?, ?, ?, ?)';
+    database_1.default.run(sql, [state, location, created_by, image_id, 0], function (err) {
         if (err) {
             return res.status(500).json({ error: err.message });
         }

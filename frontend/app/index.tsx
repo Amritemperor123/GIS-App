@@ -56,7 +56,8 @@ function HomeScreenContent() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        // reduce quality to shrink payload size, mitigating 413 errors
+        quality: 0.5,
         base64: true,
       });
 
@@ -98,9 +99,14 @@ function HomeScreenContent() {
                 sector: sectorInfo.sector,
               }),
             });
-            const responseData = await response.json();
-            if (!responseData.success) {
-              throw new Error(responseData.error || 'Failed to save image to database');
+            const contentType = response.headers.get('content-type') || '';
+            if (!response.ok) {
+              const errorText = contentType.includes('application/json') ? JSON.stringify(await response.json()) : await response.text();
+              throw new Error(errorText || `Upload failed with status ${response.status}`);
+            }
+            const responseData = contentType.includes('application/json') ? await response.json() : { success: false };
+            if (!responseData?.success) {
+              throw new Error(responseData?.error || 'Failed to save image to database');
             }
             imageId = responseData.imageId;
           } catch (error) {
@@ -110,11 +116,17 @@ function HomeScreenContent() {
           }
 
           if (imageId) {
+            // Ensure user id exists before creating a job
+            if (!user?.user_id) {
+              Alert.alert('Error', 'Your session is missing user information. Please log in again.');
+              return;
+            }
+
             // Create job and notify providers in sector
             createJob({
               state: 1,
               location: JSON.stringify(userLocation),
-              created_by: user?.user_id,
+              created_by: user.user_id,
               image_id: imageId,
             });
 
