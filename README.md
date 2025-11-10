@@ -1,115 +1,121 @@
 # GIS App
 
-## Project Description
+## 📝 Project Overview
 
-This GIS project has several deliverables. The ground up service of this project is discussed below.
-1. There are two main type of users, the `normal_user` and the `service_provider`. 
-2. The map is divided into various small `sector`s, and each sector can have single or multiple `service_provider`s assigned to it. 
-3. The `normal_user`s can upload an image anywhere in the map, implying that specific location has not recieved proper cleanup or the work is incomplete.
-4. This image, uploaded by the `normal_user`, will be visible in the map with a `red marker` and will be availble for anyone to see by just clicking on the marker.
-5. This application will check inside which `sector` this location falls, and send a notification to all the `service_provider`s of that `sector` notifying that there is an **Active Job**. This notiification will include an option to **Accept** the job.
-6. When any `service_provider` accepts the job, the rest of the `service_provider`s of that `sector` will recieve another notification saying that **This job has been accepted by Service Provider ___.** This event will change the `red marker` on the map into a `orange marker`.
-7. When the said `service_provider` reach the location to start working, he/she is required to upload another image of that site in the map as a proof of their presence. This newly uploaded image by the `service_provider` will be displayed next to the previous image uploaded by the `normal_user` under the same location marker, and this event will change the `orange marker` into a `yellow marker` on the map.
-8. After the **Job** is finished from the `service_provider`'s side, they'll upload another image under the same location marker, which will show the completed work. This even will change the `yellow marker` into a `green marker`.
-9. After the marker turns green, the uploader of the initial image *(being the first `normal_user` mentioned)* will recieve a notification in their application which will have the image thread uploaded on that location and the user will be asked for a **Review regarding the Quality of Work by the Service Provider.**
-10. After being active for a specific amount of time, the green marker will be removed from the map, but the data will be kept in the database.  
----
+The GIS App is a location-based service designed to facilitate communication and task management between "normal users" and "service providers" concerning localized issues such as cleanup or incomplete work.
 
-## Application Features
+**Core Workflow:**
+1.  **Issue Reporting:** Normal users can upload images at specific map locations to report an issue, which appears as a `red marker`.
+2.  **Job Assignment:** The system identifies the relevant "sector" for the reported location and creates an "Active Job," notifying all service providers assigned to that sector. Notifications include an option to accept the job.
+3.  **Job Acceptance:** Once a service provider accepts a job, other providers in the sector are notified, and the map marker changes to `orange`.
+4.  **Work in Progress:** The accepted service provider travels to the location and uploads a "proof of presence" image. The marker then changes to `yellow`. (Image uploads are restricted to a 10-meter radius of the job location for service providers).
+5.  **Job Completion:** After completing the work, the service provider uploads a final image, turning the marker `green`.
+6.  **User Review:** The normal user who initially reported the issue receives a notification with the image thread and is prompted to review the quality of work.
+7.  **Data Persistence:** After a set period, green markers are removed from the map (to keep it clean), but all job data is retained in the database.
 
-### For Normal Users:
+## 🏗️ Technical Documentation
 
-- **Authentication:** Login and Signup.
-- **Image Upload:** Can upload images with location data.
-- **My Uploads:** Can view a gallery of their own uploaded images with timestamps.
-- **Job Tracking:** Can see the status of their created jobs via marker color changes on the map.
-- **Notifications:** Receive a notification when a job is completed, with all associated images and a request for review.
+### Architecture
 
-### For Service Providers:
+The application follows a client-server architecture, with a clear separation between the frontend mobile/web client and the backend API. Both services are designed to be containerized using Docker.
 
-- **Authentication:** Login.
-- **Dashboard:** A dedicated dashboard to manage jobs and notifications.
-- **Job Management:**
-    - Receive notifications for new jobs in their assigned sector.
-    - Accept jobs.
-    - View active jobs and their status (accepted, in-progress, completed).
-    - Upload images to update job status (work in progress, completed).
-    - The ability to upload images is restricted to a 10-meter radius of the job location.
-- **Statistics:** View statistics on completed jobs, total jobs, and unread notifications.
-- **Notifications:**
-    - Receive notifications for new jobs.
-    - Receive notifications when another service provider accepts a job in their sector.
----
+*   **Frontend (Client):** An Expo/React Native application that provides the user interface for map interaction, image uploads, notifications, and user-specific dashboards. It communicates with the backend via RESTful API calls.
+*   **Backend (Server):** A Node.js/Express.js API responsible for handling all business logic, including user authentication, image storage, job creation, assignment and status updates, notification management, and database interactions.
+*   **Database:** SQLite is used for local development and the Docker Compose setup to store user information (`user.db`) and image metadata (`images.db`).
+*   **Architecture:** For detailed database architecture and the workflow of the entire application, refer to /diagrams.
 
-## User Manual
+### Key Features
 
-This user manual provides a detailed guide to the features and functionality of the GIS mobile application.
+*   **User Management:** Secure user authentication (login/signup) for both normal users and service providers.
+*   **Geo-tagging & Image Uploads:** Normal users can upload images along with their geographical coordinates to report new issues.
+*   **Dynamic Job Status Visualization:** Map markers change color in real-time to reflect the status of jobs (Red: new, Orange: accepted, Yellow: in progress, Green: completed).
+*   **Sector-based Job Distribution:** Automated assignment of jobs to service providers based on predefined geographical sectors.
+*   **Comprehensive Notification System:** Real-time alerts for new jobs, job acceptance, and work completion for relevant users.
+*   **Service Provider Workflow:** Dedicated dashboard for service providers to accept, manage, and update the status of their assigned jobs with geo-fenced image uploads.
+*   **User Feedback Loop:** Mechanism for normal users to review completed work after job finalization.
 
-### Getting Started
+## 💻 Tech Stack
 
-#### 1. Sign Up
+### Frontend
 
--   **Create an Account:** New users can create an account by providing a username, contact number, and password.
--   **User Type:** You can sign up as a **Normal User** or a **Service Provider**.
-    -   **Normal Users** can upload images and track the status of their jobs.
-    -   **Service Providers** are assigned to specific sectors and can accept and manage jobs.
--   **Sector ID (for Service Providers):** If you sign up as a Service Provider, the app will automatically detect your sector based on your location. You can also manually select a sector from a list.
+*   **Framework:** React Native (with Expo)
+*   **Language:** TypeScript
+*   **Styling:** NativeWind (utilizing Tailwind CSS principles)
+*   **Map Integration:** Likely uses a mapping library compatible with React Native (e.g., `react-native-maps`).
 
-#### 2. Login
+### Backend
 
--   **Welcome Back:** Existing users can log in with their username and password.
--   **Forgot Password:** (Not Implemented)
+*   **Runtime:** Node.js
+*   **Framework:** Express.js
+*   **Language:** TypeScript
+*   **Database:** SQLite
 
-### Main Map Screen
+### Database
 
-The main screen of the application is a map that displays job markers. The color of the markers indicates the status of the job:
+*   **Local/Development:** SQLite (`user.db`, `images.db`)
 
--   **Red:** New job, not yet accepted.
--   **Orange:** Job accepted by a Service Provider.
--   **Yellow:** Service Provider has started working on the job.
--   **Green:** Job completed.
+### Containerization
 
-#### For Normal Users:
+*   **Platform:** Docker
+*   **Orchestration:** Docker Compose
 
--   **Upload Image:** Tap the camera icon to upload an image of a location that needs cleaning. The app will use your current location to create a new job.
--   **Sidebar Menu:** Tap the profile icon to open the sidebar menu, where you can access:
-    -   **Notifications:** View notifications related to your jobs.
-    -   **My Uploads:** See a gallery of all the images you have uploaded.
-    -   **Statistics:** (Not Implemented)
-    -   **Logout:** Log out of the application.
+## 🚀 Build Guide
 
-#### For Service Providers:
+This project uses Docker Compose for an easy, unified setup of both frontend and backend services.
 
--   **Sidebar Menu:** Tap the profile icon to open the sidebar menu, where you can access:
-    -   **Dashboard:** View your dashboard with job statistics and notifications.
-    -   **Notifications:** View all notifications for your sector.
-    -   **Statistics:** (Not Implemented)
-    -   **Logout:** Log out of the application.
+### Local Frontend Development
 
-### Service Provider Dashboard
+If you prefer to run the frontend locally outside of Docker (e.g., for easier debugging with Expo tools), ensure you have Node.js and npm/yarn installed.
 
-This screen is exclusively for Service Providers and provides an overview of their work.
+1.  **Navigate to the frontend directory:**
+    ```bash
+    cd frontend
+    ```
 
--   **Statistics:** View key statistics, including:
-    -   **Completed Works:** The number of jobs you have completed.
-    -   **Total Jobs:** The total number of jobs in your sector.
-    -   **Unread Notices:** The number of unread notifications.
--   **Active Job:** View the details of the job you are currently working on, including its status and any uploaded images.
--   **Notifications:** See a list of all notifications for your sector. You can tap on a notification to view more details.
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or yarn install
+    ```
 
-### My Uploads (for Normal Users)
+3.  **Start the Expo development server:**
+    ```bash
+    npx expo start
+    ```
+    This will open the Expo Dev Tools in your browser, where you can choose to run the app on a web browser, Android emulator, or iOS simulator.
+    **Note:** When running the frontend locally, you will need to ensure the backend is accessible. If running the backend locally (not in Docker), it will typically be on `http://localhost:3001`. If the backend is running via Docker Compose, you may need to configure the API URL in your local frontend environment to point to `http://localhost:3001` (assuming port mapping is correct).
 
-This screen displays a gallery of all the images you have uploaded, along with the date and time of each upload.
+## 🧑‍💻 Development Guide
 
-### Notifications
+### Project Structure
 
-This screen displays a list of all your notifications.
+The project is organized into `backend` and `frontend` directories, along with other supporting files.
 
--   **For Normal Users:** You will receive notifications when the status of a job you created changes.
--   **For Service Providers:** You will receive notifications for new jobs in your sector and when another provider accepts a job.
+*   `backend/`: Contains the Node.js/Express.js API.
+    *   `src/`: TypeScript source files.
+        *   `index.ts`: The main entry point of the backend application.
+        *   `db/database.ts`: Handles database connection and ORM logic (e.g., SQLite interactions).
+        *   `routes/`: Defines the API endpoints (e.g., `auth.ts`, `images.ts`, `jobs.ts`, `notifications.ts`, `users.ts`).
+        *   `types.ts`: TypeScript type definitions for the backend.
+*   `frontend/`: Contains the Expo/React Native application.
+    *   `app/`: Core application screens/routes (e.g., `dashboard.tsx`, `login.tsx`, `my-uploads.tsx`). This project uses file-based routing with Expo Router.
+    *   `assets/`: Static assets like images (`images/`) and geographical data (`layers/data.geojson`).
+    *   `components/`: Reusable UI components (e.g., `MapView.tsx`, `ProtectedRoute.tsx`).
+    *   `constants/`: Application-wide constants, such as `theme.ts`.
+    *   `contexts/`: React Contexts for global state management (e.g., `AuthContext.tsx`, `JobsContext.tsx`, `NotificationContext.tsx`).
+    *   `hooks/`: Custom React hooks for encapsulating reusable logic.
+    *   `types/`: TypeScript type definitions for the frontend.
+    *   `utils/`: Utility functions (e.g., `api.ts` for API interactions, `locationUtils.ts`).
+    *   `tailwind.config.js`: Configuration for NativeWind/Tailwind CSS styling.
+*   `database/`: (Created by Docker volume) Persists SQLite database files for the backend.
+*   `diagrams/`: Contains project diagrams (e.g., `GIS Planning.pdf`, `GIS Schema.pdf`).
+*   `docker-compose.yaml`: Defines and orchestrates the Docker containers for the backend and frontend.
+*   `DOCKER_SETUP.md`: Detailed guide for Docker setup and common commands.
 
-### Profile
+### Environment Variables
 
--   **Edit Profile:** You can update your username, contact number, and (for Service Providers) your sector.
--   **Logout:** Log out of the application.
--   **Delete Account:** Permanently delete your account and all associated data.
+*   **Frontend (Docker Build Arg):** `VITE_API_URL` is passed as a build argument to the frontend Dockerfile to configure the backend API endpoint. When running with `docker-compose up`, this is automatically set to `http://backend:3001`.
+
+### Database Persistence
+
+When using Docker Compose, the SQLite database files (`user.db` and `images.db`) are stored in the `./database` directory on your host machine. This ensures that your data persists even if the Docker containers are removed or recreated.
