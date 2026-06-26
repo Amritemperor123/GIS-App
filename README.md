@@ -1,6 +1,6 @@
 # GIS App
 
-## 📝 Project Overview
+## Project Overview
 
 The GIS App is a location-based service designed to facilitate communication and task management between "normal users" and "service providers" concerning localized issues such as cleanup or incomplete work.
 
@@ -13,7 +13,7 @@ The GIS App is a location-based service designed to facilitate communication and
 6.  **User Review:** The normal user who initially reported the issue receives a notification with the image thread and is prompted to review the quality of work.
 7.  **Data Persistence:** After a set period, green markers are removed from the map (to keep it clean), but all job data is retained in the database.
 
-## 🏗️ Technical Documentation
+## Technical Documentation
 
 ### Architecture
 
@@ -34,7 +34,7 @@ The application follows a client-server architecture, with a clear separation be
 *   **Service Provider Workflow:** Dedicated dashboard for service providers to accept, manage, and update the status of their assigned jobs with geo-fenced image uploads.
 *   **User Feedback Loop:** Mechanism for normal users to review completed work after job finalization.
 
-## 💻 Tech Stack
+## Tech Stack
 
 ### Frontend
 
@@ -59,7 +59,7 @@ The application follows a client-server architecture, with a clear separation be
 *   **Platform:** Docker
 *   **Orchestration:** Docker Compose
 
-## 🚀 Build Guide
+## Build Guide
 
 This project uses Docker Compose for an easy, unified setup of both frontend and backend services.
 
@@ -85,7 +85,7 @@ If you prefer to run the frontend locally outside of Docker (e.g., for easier de
     This will open the Expo Dev Tools in your browser, where you can choose to run the app on a web browser, Android emulator, or iOS simulator.
     **Note:** When running the frontend locally, you will need to ensure the backend is accessible. If running the backend locally (not in Docker), it will typically be on `http://localhost:3001`. If the backend is running via Docker Compose, you may need to configure the API URL in your local frontend environment to point to `http://localhost:3001` (assuming port mapping is correct).
 
-## 🧑‍💻 Development Guide
+## Development Guide
 
 ### Project Structure
 
